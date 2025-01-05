@@ -289,3 +289,5 @@ func printResponse(resp *genai.Text) {
 		}
 	}
 }
+
+
