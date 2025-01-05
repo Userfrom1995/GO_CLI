@@ -1,186 +1,15 @@
-// package main
-
-// import (
-// 	"context"
-// 	"fmt"
-// 	"io/ioutil"
-// 	"log"
-// 	"os"
-// 	"path/filepath"
-
-// 	"github.com/google/generative-ai-go/genai"
-// 	"google.golang.org/api/iterator"
-// 	"google.golang.org/api/option"
-// 	"github.com/joho/godotenv"
-// )
-// package main
-
-// import (
-// 	"context"
-// 	"fmt"
-// 	"io/ioutil"
-// 	"log"
-// 	"os"
-// 	"path/filepath"
-
-// 	"github.com/google/generative-ai-go/genai"
-// 	"github.com/joho/godotenv"
-// 	"google.golang.org/api/option"
-// )
-
-// func main() {
-// 	// Load .env file
-// 	if err := godotenv.Load(); err != nil {
-// 		log.Println("Warning: No .env file found, falling back to system environment variables")
-// 	}
-
-// 	// Get the API key
-// 	GEMINI_API_KEY := os.Getenv("GEMINI_API_KEY")
-// 	if GEMINI_API_KEY == "" {
-// 		log.Fatal("GEMINI_API_KEY is not set. Please provide it in the .env file or as an environment variable.")
-// 	}
-
-// 	// Create a new GenAI client
-// 	ctx := context.Background()
-// 	client, err := genai.NewClient(ctx, option.WithAPIKey(GEMINI_API_KEY))
-// 	if err != nil {
-// 		log.Fatalf("Failed to create GenAI client: %v", err)
-// 	}
-// 	defer client.Close()
-
-// 	// Specify the directory to scan
-// 	dir := "./your-directory-path"
-
-// 	// Scan the directory for files and folders
-// 	content, err := scanDirectory(dir)
-// 	if err != nil {
-// 		log.Fatalf("Error scanning directory: %v", err)
-// 	}
-
-// 	// Send context to Gemini
-// 	prompt := fmt.Sprintf("Here is the content of my files and folders:\n\n%s", content)
-// 	fmt.Println("Sending context to Gemini...")
-// 	chat, err := client.CreateChat(ctx, &genai.CreateChatRequest{
-// 		Prompt: prompt,
-// 	})
-// 	if err != nil {
-// 		log.Fatalf("Failed to create chat: %v", err)
-// 	}
-
-// 	// Start interactive conversation
-// 	fmt.Println("Context sent! You can now chat with Gemini.")
-// 	for {
-// 		fmt.Print("> ")
-// 		var userInput string
-// 		fmt.Scanln(&userInput)
-
-// 		// Send user input to Gemini and get response
-// 		resp, err := client.SendMessage(ctx, &genai.SendMessageRequest{
-// 			ChatID: chat.ChatID,
-// 			Prompt: userInput,
-// 		})
-// 		if err != nil {
-// 			log.Printf("Error sending message: %v\n", err)
-// 			continue
-// 		}
-
-// 		// Print Gemini's response
-// 		fmt.Println(resp.Content)
-// 	}
-// }
-
-// // scanDirectory recursively scans a directory and reads file contents
-// func scanDirectory(dir string) (string, error) {
-// 	var content string
-// 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-// 		if err != nil {
-// 			return err
-// 		}
-
-// 		if !info.IsDir() { // If it's a file
-// 			fileContent, err := ioutil.ReadFile(path)
-// 			if err != nil {
-// 				return err
-// 			}
-// 			content += fmt.Sprintf("File: %s\n%s\n\n", path, string(fileContent))
-// 		} else { // If it's a folder
-// 			content += fmt.Sprintf("Folder: %s\n", path)
-// 		}
-// 		return nil
-// 	})
-// 	return content, err
-// }
-
-// func main() {
-// 	err := godotenv.Load()
-// 	if err != nil {
-// 		log.Fatalf("Error loading .env file: %v", err)
-// 	}
-// 	GEMINI_API_KEY := os.Getenv("GEMINI_API_KEY")
-// 	ctx := context.Background()
-// 	client, err := genai.NewClient(ctx, option.WithAPIKey(GEMINI_API_KEY))
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-// 	defer client.Close()
-//     dir := "."
-// 	content, err := scanDirectory(dir)
-// 	if err != nil {
-// 		log.Fatalf("Error scanning directory: %v", err)
-// 	}
-//     prompt := fmt.Sprintf("Here is the content of my files and folders:\n\n%s", content)
-// 	fmt.Println("Sending context to Gemini...")
-// 	model := client.GenerativeModel("gemini-1.5-flash")
-// 	cs := model.StartChat()
-
-// 	cs.History = []*genai.Content{
-// 		{
-// 			Parts: []genai.Part{
-// 				genai.Text("look at this directory"),
-// 			},
-// 			Role: "user",
-// 		},
-// 		{
-// 			Parts: []genai.Part{
-// 				genai.Blob{prompt},
-// 			},
-// 			Role: "model",
-// 		},
-// 	}
-// 	iter := cs.SendMessageStream(ctx, genai.Text("look at this directory"))
-// for {
-// 	resp, err := iter.Next()
-// 	if err == iterator.Done {
-// 		break
-// 	}
-// 	if err != nil {
-// 		log.Fatal(err)
-// 	}
-// 	printResponse(resp)
-// }
-
-// 	// iter := client.ListFiles(ctx)
-// 	// for {
-// 	// 	ifile, err := iter.Next()
-// 	// 	if err == iterator.Done {
-// 	// 		break
-// 	// 	}
-// 	// 	if err != nil {
-// 	// 		log.Fatal(err)
-// 	// 	}
-// 	// 	fmt.Println(ifile.Name)
-// 	// }
-
-// }
 package main
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
+	"unicode/utf8"
 
 	"github.com/google/generative-ai-go/genai"
 	"github.com/joho/godotenv"
@@ -215,30 +44,30 @@ func main() {
 		log.Fatalf("Error scanning directory: %v", err)
 	}
 
-	// Prepare the context prompt
-	prompt := fmt.Sprintf("Here is the content of my files and folders:\n\n%s", content)
-
-	// Send context to Gemini
-	fmt.Println("Sending context to Gemini...")
-	model := client.GenerativeModel("gemini-1.5-flash")
-	cs := model.StartChat()
-
-	// Initialize the chat with file contents
-	cs.History = []*genai.Content{
-		{
-			Parts: []genai.Part{
-				genai.Text(prompt),
-			},
-			Role: "user",
-		},
-	}
+	// Initialize chat context
+	cs := initializeChat(client, ctx, content)
 
 	// Start interactive conversation
 	fmt.Println("Context sent! You can now chat with Gemini.")
+	scanner := bufio.NewScanner(os.Stdin)
 	for {
 		fmt.Print("> ") // Prompt for user input
-		var userInput string
-		fmt.Scanln(&userInput)
+		if !scanner.Scan() {
+			break
+		}
+		userInput := scanner.Text()
+
+		if strings.ToLower(userInput) == "update" || strings.ToLower(userInput) == "relook" {
+			fmt.Println("Re-scanning directory...")
+			content, err := scanDirectory(dir)
+			if err != nil {
+				log.Printf("Error scanning directory: %v\n", err)
+				continue
+			}
+			cs = initializeChat(client, ctx, content)
+			fmt.Println("Directory context updated!")
+			continue
+		}
 
 		// Send user message to Gemini
 		iter := cs.SendMessageStream(ctx, genai.Text(userInput))
@@ -251,43 +80,100 @@ func main() {
 				log.Printf("Error sending message: %v\n", err)
 				break
 			}
+			// Print Gemini's response
 			printResponse(resp)
 		}
 	}
 }
 
+// initializeChat sets up the chat with initial file content
+func initializeChat(client *genai.Client, ctx context.Context, content string) *genai.ChatSession {
+	model := client.GenerativeModel("gemini-1.5-flash")
+	cs := model.StartChat()
+
+	// Initialize the chat with directory contents
+	cs.History = []*genai.Content{
+		{
+			Parts: []genai.Part{
+				genai.Text(fmt.Sprintf("Here is the content of my files and folders:\n\n%s", content)),
+			},
+			Role: "user",
+		},
+	}
+	return cs
+}
+
 // scanDirectory recursively scans a directory and reads file contents
 func scanDirectory(dir string) (string, error) {
-	var content string
+	var content strings.Builder
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
-			return err
+			log.Printf("Error accessing path %s: %v\n", path, err)
+			return nil // Skip this file or folder
 		}
 
 		if !info.IsDir() { // If it's a file
 			fileContent, err := ioutil.ReadFile(path)
 			if err != nil {
-				return err
+				log.Printf("Error reading file %s: %v\n", path, err)
+				return nil // Skip this file
 			}
-			content += fmt.Sprintf("File: %s\n%s\n\n", path, string(fileContent))
+
+			// Skip binary files
+			if !utf8.Valid(fileContent) {
+				log.Printf("Skipping binary or invalid UTF-8 file: %s\n", path)
+				return nil
+			}
+
+			content.WriteString(fmt.Sprintf("File: %s\n%s\n\n", path, string(fileContent)))
 		} else { // If it's a folder
-			content += fmt.Sprintf("Folder: %s\n", path)
+			content.WriteString(fmt.Sprintf("Folder: %s\n", path))
 		}
 		return nil
 	})
-	return content, err
+	return content.String(), err
 }
 
-// printResponse formats and prints Gemini's responses
-func printResponse(resp *genai.Text) {
-	for _, part := range resp.Content.Parts {
-		switch v := part.(type) {
-		case genai.Text:
-			fmt.Println(v.Text)
-		default:
-			fmt.Printf("Unhandled response part: %+v\n", part)
-		}
+//printResponse formats and prints Gemini's responses
+func printResponse(resp *genai.GenerateContentResponse) {
+	for _, part := range resp.Candidates[0].Content.Parts {
+		// Assuming part is a string or implements a method to get the string content
+		formatted := cleanMarkdown(fmt.Sprintf("%v", part)) // Convert part to string safely
+		fmt.Println(formatted) // Print the cleaned response text
 	}
+}
+// func printResponse(resp genai.GenerateContentResponse) {
+// 	for _, part := range resp.Candidates[0].Content.Parts {
+// 			textContent := ""
+// 			switch p := part.(type) {
+// 			case genai.Text: // Or whatever the actual type is
+// 					textContent = p
+// 			case *genai.Text: // Or a pointer to the type
+// 					textContent = p
+// 			default:
+// 					log.Printf("Unexpected part type : %T\n", part)
+// 					continue // Skip this part if it's not the expected type
+// 			}
+// 			formatted := cleanMarkdown(textContent)
+// 			fmt.Println(formatted)
+// 	}
+// }
+
+
+// cleanMarkdown removes Markdown artifacts for better readability
+func cleanMarkdown(input string) string {
+	// Replace Markdown-specific symbols
+	replacer := strings.NewReplacer(
+		"**", "", // Bold
+		"*", "",  // Italic
+		"- ", "", // List items
+		"`", "",  // Inline code
+	)
+	output := replacer.Replace(input)
+
+	// Remove extra newlines
+	output = strings.TrimSpace(output)
+	return output
 }
 
 
