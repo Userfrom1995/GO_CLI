@@ -10,13 +10,14 @@ import (
 	"path/filepath"
 	"strings"
 	"unicode/utf8"
+	"os/exec"
 
 	"github.com/google/generative-ai-go/genai"
 	"github.com/joho/godotenv"
 	"google.golang.org/api/iterator"
 	"google.golang.org/api/option"
 )
-
+var cs *genai.ChatSession
 func main() {
 	// Load .env file
 	if err := godotenv.Load(); err != nil {
@@ -64,7 +65,7 @@ func main() {
 				log.Printf("Error scanning directory: %v\n", err)
 				continue
 			}
-			cs = initializeChat(client, ctx, content)
+			updateChatContext(cs, content)
 			fmt.Println("Directory context updated!")
 			continue
 		}
@@ -82,27 +83,157 @@ func main() {
 			}
 			// Print Gemini's response
 			printResponse(resp)
+
+			if len(resp.Candidates) > 0 && len(resp.Candidates[0].Content.Parts) > 0 {
+				// Iterate over each part to extract text
+				var commandText string
+				for _, part := range resp.Candidates[0].Content.Parts {
+					// Check if the part is of type genai.Text
+					switch p := part.(type) {
+					case genai.Text:
+						// Extract text from genai.Text and append it to commandText
+						commandText = string(p)
+					case *genai.Text:
+						// If it's a pointer to genai.Text, dereference it and append to commandText
+						commandText = string(*p)
+					}
+				}
+			
+				// Check if the commandText contains "run command:"
+				if strings.Contains(commandText, "run command:") {
+					// Extract the actual command after "run command:"
+					command := strings.TrimSpace(strings.TrimPrefix(commandText, "run command:"))
+			
+					// Execute the command Gemini suggested
+					output, err := executeCommand(command)
+					if err != nil {
+						fmt.Printf("Error executing command: %v\n", err)
+					}
+			
+					// Send the output back to Gemini
+					_, sendErr := cs.SendMessage(ctx, genai.Text(output))
+					if sendErr != nil {
+						fmt.Printf("Error sending message to Gemini: %v\n", sendErr)
+					}
+				}
+			}
+			
 		}
 	}
 }
+
+func executeCommand(cmdStr string) (string, error) {
+	// Prepare the command
+	cmd := exec.Command("bash", "-c", cmdStr)
+
+	// Create pipes for stdout and stderr
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return "", fmt.Errorf("error creating stdout pipe: %v", err)
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return "", fmt.Errorf("error creating stderr pipe: %v", err)
+	}
+
+	// Start the command
+	if err := cmd.Start(); err != nil {
+		return "", fmt.Errorf("error starting command: %v", err)
+	}
+
+	// Create readers for stdout and stderr
+	stdoutReader := bufio.NewReader(stdout)
+	stderrReader := bufio.NewReader(stderr)
+
+	// Channels to capture the complete output
+	outputCh := make(chan string)
+	errorCh := make(chan string)
+
+	// Stream stdout and stderr in separate goroutines
+	go streamOutput(stdoutReader, "STDOUT", outputCh)
+	go streamOutput(stderrReader, "STDERR", errorCh)
+
+	// Collect the output from both channels
+	var stdoutOutput, stderrOutput string
+	go func() {
+		for line := range outputCh {
+			stdoutOutput += line
+		}
+	}()
+	go func() {
+		for line := range errorCh {
+			stderrOutput += line
+		}
+	}()
+
+	// Wait for the command to finish
+	if err := cmd.Wait(); err != nil {
+		return fmt.Sprintf("Command failed:\nSTDOUT:\n%s\nSTDERR:\n%s\n", stdoutOutput, stderrOutput), err
+	}
+
+	// Combine stdout and stderr
+	combinedOutput := fmt.Sprintf("STDOUT:\n%s\nSTDERR:\n%s\n", stdoutOutput, stderrOutput)
+	return combinedOutput, nil
+}
+
+// streamOutput reads and prints output line-by-line in real-time
+func streamOutput(reader *bufio.Reader, label string, ch chan string) {
+	defer close(ch)
+	for {
+		line, err := reader.ReadString('\n')
+		if len(line) > 0 {
+			fmt.Printf("[%s] %s", label, line) // Print to user terminal
+			ch <- line                        // Send line to output channel
+		}
+		if err != nil {
+			break
+		}
+	}
+}
+
+
 
 // initializeChat sets up the chat with initial file content
 func initializeChat(client *genai.Client, ctx context.Context, content string) *genai.ChatSession {
 	model := client.GenerativeModel("gemini-1.5-flash")
 	cs := model.StartChat()
-
-	// Initialize the chat with directory contents
-	cs.History = []*genai.Content{
-		{
-			Parts: []genai.Part{
-				genai.Text(fmt.Sprintf("Here is the content of my files and folders:\n\n%s", content)),
+	chatPrompt := fmt.Sprintf(`
+	Here is the content of my files and folders:
+	
+	%s
+	
+	So you're a coding assistant or partner you're provided with the current directory content already 
+	and you can also ask user to provide you the current directory content again by running the update command 
+	So you're a coding assistant or partner you're provided with the current directory content already and 
+	you can also ask user to provide you the current directory content again by running the update command or 
+	you can also run the command on a user's terminal whenever you wanna run command on the user terminal you 
+	can send the command in the format run command or you can also run the command on a user's terminal whenever you wanna run 
+	command on the user terminal you can send the command in the format "run command: desired command" and then the command will be executed on the user system and you will be provided with
+	 output of the command and then the command will be executed on the user system and you will be provided 
+	 without output of the command so your main job is to help the programmer to get the maximum productivity and be a 
+	 companion so your main job is to help the programmer to get the maximum productivity and be a companion`, content)
+	
+		// Initialize the chat with directory contents and command execution explanation
+		cs.History = []*genai.Content{
+			{
+				Parts: []genai.Part{
+					genai.Text(chatPrompt),
+				},
+				Role: "user",
 			},
-			Role: "user",
-		},
-	}
-	return cs
+		}
+	
+		return cs
 }
-
+// updateChatContext appends new file content to the existing chat history
+func updateChatContext(cs *genai.ChatSession, content string) {
+	cs.History = append(cs.History, &genai.Content{
+		Parts: []genai.Part{
+			genai.Text(fmt.Sprintf("Here is the updated content of my files and folders:\n\n%s", content)),
+		},
+		Role: "user",
+	})
+}
 // scanDirectory recursively scans a directory and reads file contents
 func scanDirectory(dir string) (string, error) {
 	var content strings.Builder
