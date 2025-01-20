@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 	"unicode/utf8"
-	"os/exec"
+	// "os/exec"
 
 	"github.com/google/generative-ai-go/genai"
 	"github.com/joho/godotenv"
@@ -84,112 +84,112 @@ func main() {
 			// Print Gemini's response
 			printResponse(resp)
 
-			if len(resp.Candidates) > 0 && len(resp.Candidates[0].Content.Parts) > 0 {
-				// Iterate over each part to extract text
-				var commandText string
-				for _, part := range resp.Candidates[0].Content.Parts {
-					// Check if the part is of type genai.Text
-					switch p := part.(type) {
-					case genai.Text:
-						// Extract text from genai.Text and append it to commandText
-						commandText = string(p)
-					case *genai.Text:
-						// If it's a pointer to genai.Text, dereference it and append to commandText
-						commandText = string(*p)
-					}
-				}
+			// if len(resp.Candidates) > 0 && len(resp.Candidates[0].Content.Parts) > 0 {
+			// 	// Iterate over each part to extract text
+			// 	var commandText string
+			// 	for _, part := range resp.Candidates[0].Content.Parts {
+			// 		// Check if the part is of type genai.Text
+			// 		switch p := part.(type) {
+			// 		case genai.Text:
+			// 			// Extract text from genai.Text and append it to commandText
+			// 			commandText = string(p)
+			// 		case *genai.Text:
+			// 			// If it's a pointer to genai.Text, dereference it and append to commandText
+			// 			commandText = string(*p)
+			// 		}
+			// 	}
 			
-				// Check if the commandText contains "run command:"
-				if strings.Contains(commandText, "run command:") {
-					// Extract the actual command after "run command:"
-					command := strings.TrimSpace(strings.TrimPrefix(commandText, "run command:"))
+				// // Check if the commandText contains "run command:"
+				// if strings.Contains(commandText, "run command:") {
+				// 	// Extract the actual command after "run command:"
+				// 	command := strings.TrimSpace(strings.TrimPrefix(commandText, "run command:"))
 			
-					// Execute the command Gemini suggested
-					output, err := executeCommand(command)
-					if err != nil {
-						fmt.Printf("Error executing command: %v\n", err)
-					}
+				// 	// Execute the command Gemini suggested
+				// 	output, err := executeCommand(command)
+				// 	if err != nil {
+				// 		fmt.Printf("Error executing command: %v\n", err)
+				// 	}
 			
-					// Send the output back to Gemini
-					_, sendErr := cs.SendMessage(ctx, genai.Text(output))
-					if sendErr != nil {
-						fmt.Printf("Error sending message to Gemini: %v\n", sendErr)
-					}
-				}
+				// 	// Send the output back to Gemini
+				// 	_, sendErr := cs.SendMessage(ctx, genai.Text(output))
+				// 	if sendErr != nil {
+				// 		fmt.Printf("Error sending message to Gemini: %v\n", sendErr)
+				// 	}
+				// }
 			}
 			
 		}
 	}
-}
 
-func executeCommand(cmdStr string) (string, error) {
-	// Prepare the command
-	cmd := exec.Command("bash", "-c", cmdStr)
 
-	// Create pipes for stdout and stderr
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return "", fmt.Errorf("error creating stdout pipe: %v", err)
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return "", fmt.Errorf("error creating stderr pipe: %v", err)
-	}
+// func executeCommand(cmdStr string) (string, error) {
+// 	// Prepare the command
+// 	cmd := exec.Command("bash", "-c", cmdStr)
 
-	// Start the command
-	if err := cmd.Start(); err != nil {
-		return "", fmt.Errorf("error starting command: %v", err)
-	}
+// 	// Create pipes for stdout and stderr
+// 	stdout, err := cmd.StdoutPipe()
+// 	if err != nil {
+// 		return "", fmt.Errorf("error creating stdout pipe: %v", err)
+// 	}
+// 	stderr, err := cmd.StderrPipe()
+// 	if err != nil {
+// 		return "", fmt.Errorf("error creating stderr pipe: %v", err)
+// 	}
 
-	// Create readers for stdout and stderr
-	stdoutReader := bufio.NewReader(stdout)
-	stderrReader := bufio.NewReader(stderr)
+// 	// Start the command
+// 	if err := cmd.Start(); err != nil {
+// 		return "", fmt.Errorf("error starting command: %v", err)
+// 	}
 
-	// Channels to capture the complete output
-	outputCh := make(chan string)
-	errorCh := make(chan string)
+// 	// Create readers for stdout and stderr
+// 	// stdoutReader := bufio.NewReader(stdout)
+// 	// stderrReader := bufio.NewReader(stderr)
 
-	// Stream stdout and stderr in separate goroutines
-	go streamOutput(stdoutReader, "STDOUT", outputCh)
-	go streamOutput(stderrReader, "STDERR", errorCh)
+// 	// Channels to capture the complete output
+// 	outputCh := make(chan string)
+// 	errorCh := make(chan string)
 
-	// Collect the output from both channels
-	var stdoutOutput, stderrOutput string
-	go func() {
-		for line := range outputCh {
-			stdoutOutput += line
-		}
-	}()
-	go func() {
-		for line := range errorCh {
-			stderrOutput += line
-		}
-	}()
+// 	// Stream stdout and stderr in separate goroutines
+// 	// go streamOutput(stdoutReader, "STDOUT", outputCh)
+// 	// go streamOutput(stderrReader, "STDERR", errorCh)
 
-	// Wait for the command to finish
-	if err := cmd.Wait(); err != nil {
-		return fmt.Sprintf("Command failed:\nSTDOUT:\n%s\nSTDERR:\n%s\n", stdoutOutput, stderrOutput), err
-	}
+// 	// Collect the output from both channels
+// 	var stdoutOutput, stderrOutput string
+// 	go func() {
+// 		for line := range outputCh {
+// 			stdoutOutput += line
+// 		}
+// 	}()
+// 	go func() {
+// 		for line := range errorCh {
+// 			stderrOutput += line
+// 		}
+// 	}()
 
-	// Combine stdout and stderr
-	combinedOutput := fmt.Sprintf("STDOUT:\n%s\nSTDERR:\n%s\n", stdoutOutput, stderrOutput)
-	return combinedOutput, nil
-}
+// 	// Wait for the command to finish
+// 	if err := cmd.Wait(); err != nil {
+// 		return fmt.Sprintf("Command failed:\nSTDOUT:\n%s\nSTDERR:\n%s\n", stdoutOutput, stderrOutput), err
+// 	}
+
+// 	// Combine stdout and stderr
+// 	combinedOutput := fmt.Sprintf("STDOUT:\n%s\nSTDERR:\n%s\n", stdoutOutput, stderrOutput)
+// 	return combinedOutput, nil
+// }
 
 // streamOutput reads and prints output line-by-line in real-time
-func streamOutput(reader *bufio.Reader, label string, ch chan string) {
-	defer close(ch)
-	for {
-		line, err := reader.ReadString('\n')
-		if len(line) > 0 {
-			fmt.Printf("[%s] %s", label, line) // Print to user terminal
-			ch <- line                        // Send line to output channel
-		}
-		if err != nil {
-			break
-		}
-	}
-}
+// func streamOutput(reader *bufio.Reader, label string, ch chan string) {
+// 	defer close(ch)
+// 	for {
+// 		line, err := reader.ReadString('\n')
+// 		if len(line) > 0 {
+// 			fmt.Printf("[%s] %s", label, line) // Print to user terminal
+// 			ch <- line                        // Send line to output channel
+// 		}
+// 		if err != nil {
+// 			break
+// 		}
+// 	}
+// }
 
 
 
