@@ -1,0 +1,5 @@
+*.gz
+*.jpg
+*.txt
+a.txt
+.env
