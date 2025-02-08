@@ -1,27 +1,28 @@
 package main
 
 import (
-	"encoding/base64"
 	"fmt"
 	"github.com/google/generative-ai-go/genai"
 	"io/ioutil"
 	"log"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
-	"unicode/utf8"
 )
 
 var fileWriteSchema = &genai.Schema{
 	Type: genai.TypeObject,
 	Properties: map[string]*genai.Schema{
 		"fileName": {
-			Type:        genai.TypeString,
-			Description: "The name of the file to write to. Do not include extension, it will be automatically added (.txt)",
+			Type: genai.TypeString,
+			Description: "The name or path of the file to write to. " +
+				"If only a file name is provided, the file will be created in the current working directory. " +
+				"You may specify any file extension.",
 		},
 		"content": {
 			Type:        genai.TypeString,
-			Description: "The text content to write to the file",
+			Description: "The text content to write to the file.",
 		},
 	},
 	Required: []string{"fileName", "content"},
@@ -30,87 +31,77 @@ var fileWriteSchema = &genai.Schema{
 var FileTool = &genai.Tool{
 	FunctionDeclarations: []*genai.FunctionDeclaration{
 		{
-			Name:        "file_write",
-			Description: "write a text file to user local file system with specified name and content.",
-			Parameters:  fileWriteSchema,
+			Name: "file_write",
+			Description: "Writes a file to the local file system with the specified name/path and content. " +
+				"If the file already exists, it will be overwritten.",
+			Parameters: fileWriteSchema,
 		},
 	},
 }
 
 func WriteDesktop(fileName string, content string) error {
-	fileName = fileName + ".txt"
-	home, _ := os.UserHomeDir()
-	fullPath := filepath.Join(home, "Desktop", fileName)
+	var fullPath string
 
+	// If fileName is an absolute path or contains a directory separator, use it as-is.
+	// Otherwise, assume it's just a file name and use the current working directory.
+	if filepath.IsAbs(fileName) || strings.Contains(fileName, string(os.PathSeparator)) {
+		fullPath = fileName
+	} else {
+		cwd, err := os.Getwd()
+		if err != nil {
+			return fmt.Errorf("failed to get current working directory: %v", err)
+		}
+		fullPath = filepath.Join(cwd, fileName)
+	}
+
+	// Replace literal "\n" with actual newlines in the content.
 	formattedContent := strings.ReplaceAll(content, "\\n", "\n")
 
+	// Write the file, using 0644 permissions.
+	// This will override the file if it already exists.
 	err := os.WriteFile(fullPath, []byte(formattedContent), 0644)
 	if err != nil {
-		return err
+		return fmt.Errorf("failed to write file at '%s': %v", fullPath, err)
 	}
 	return nil
 }
 
 func scanDirectory(dir string) (string, error) {
-	var content strings.Builder
+	// Ensure the directory exists
+	if _, err := os.Stat(dir); os.IsNotExist(err) {
+		return "", fmt.Errorf("directory '%s' does not exist", dir)
+	}
 
-	// Load ignored patterns from .fileignore
+	var content strings.Builder
+	var indentLevel int
+
 	ignorePatterns, err := loadIgnorePatterns(dir)
 	if err != nil {
 		log.Printf("Warning: Failed to load .fileignore: %v\n", err)
 	}
 
-	// Walk through the directory
 	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			log.Printf("Error accessing path %s: %v\n", path, err)
 			return nil // Skip this file or folder
 		}
 
-		relPath, _ := filepath.Rel(dir, path) // Get relative path for ignoring
+		relPath, _ := filepath.Rel(dir, path)
 
-		// Skip ignored files and directories
 		if isIgnored(relPath, info, ignorePatterns) {
 			log.Printf("Skipping ignored file: %s\n", path)
 			return nil
 		}
 
+		indentLevel = strings.Count(relPath, string(os.PathSeparator))
+		indentation := strings.Repeat("  ", indentLevel)
+
 		if info.IsDir() {
-			content.WriteString(fmt.Sprintf("Folder: %s\n", path))
+			content.WriteString(fmt.Sprintf("%s📁 Folder: %s\n", indentation, path))
 			return nil
 		}
 
-		// Read file content
-		fileContent, err := ioutil.ReadFile(path)
-		if err != nil {
-			log.Printf("Error reading file %s: %v\n", path, err)
-			return nil
-		}
-
-		// Detect binary files (like images/videos)
-		if !utf8.Valid(fileContent) {
-			log.Printf("Processing binary file: %s\n", path)
-
-			// Convert binary file to Base64
-			base64Data := base64.StdEncoding.EncodeToString(fileContent)
-
-			// Limit Base64 preview length (avoid large text)
-			preview := base64Data
-			if len(base64Data) > 1000 {
-				preview = base64Data[:1000] + "..." // Show only first 1000 chars
-			}
-
-			// Format binary file info for Gemini
-			content.WriteString(fmt.Sprintf(
-				"Binary File: %s\nType: %s\nSize: %d bytes\nBase64 Preview:\n%s\n\n",
-				path, detectFileType(path), info.Size(), preview,
-			))
-
-			return nil
-		}
-
-		// Append text file content
-		content.WriteString(fmt.Sprintf("File: %s\n%s\n\n", path, string(fileContent)))
+		content.WriteString(fmt.Sprintf("%s📄 File: %s (Size: %d bytes)\n", indentation, path, info.Size()))
 		return nil
 	})
 
@@ -240,7 +231,7 @@ var ReadFileTool = &genai.Tool{
 	FunctionDeclarations: []*genai.FunctionDeclaration{
 		{
 			Name:        "ReadFile",
-			Description: "Reads the contents of a specified file and returns the text.",
+			Description: "Reads the contents of a specified file and send it to you to analyze it.",
 			Parameters:  ReadFileSchema,
 		},
 	},
@@ -310,3 +301,45 @@ var ReadFileTool = &genai.Tool{
 //		},
 //	},
 //}
+
+func RunCommand(command string, argsStr string) (string, error) {
+	// Split the arguments string into a slice (if any arguments are provided)
+	var args []string
+	if argsStr != "" {
+		args = strings.Fields(argsStr)
+	}
+
+	// Create the command using the command name and arguments
+	cmd := exec.Command(command, args...)
+	output, err := cmd.CombinedOutput() // capture both stdout and stderr
+	if err != nil {
+		return "", fmt.Errorf("failed to execute command: %v\nOutput: %s", err, output)
+	}
+
+	return string(output), nil
+}
+
+var runCommandSchema = &genai.Schema{
+	Type: genai.TypeObject,
+	Properties: map[string]*genai.Schema{
+		"command": {
+			Type:        genai.TypeString,
+			Description: "The terminal command to execute. Examples include 'ls', 'rm', 'mv', 'cp', etc.",
+		},
+		"args": {
+			Type:        genai.TypeString,
+			Description: "Optional space-separated arguments for the command.",
+		},
+	},
+	Required: []string{"command"},
+}
+
+var RunCommandTool = &genai.Tool{
+	FunctionDeclarations: []*genai.FunctionDeclaration{
+		{
+			Name:        "run_command",
+			Description: "Executes a simple terminal command with optional arguments and returns its output.",
+			Parameters:  runCommandSchema,
+		},
+	},
+}

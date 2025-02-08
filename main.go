@@ -36,7 +36,7 @@ func main() {
 	}
 
 	genaiApp.model = NewModel(genaiApp.client, GenaiModel)
-	genaiApp.model.Tools = []*genai.Tool{FileTool, ScanTool, ReadFileTool}
+	genaiApp.model.Tools = []*genai.Tool{FileTool, ScanTool, ReadFileTool, RunCommandTool, SystemInfoTool}
 	genaiApp.cs = genaiApp.model.StartChat()
 
 	for {
@@ -93,9 +93,9 @@ func buildResponse(resp *genai.GenerateContentResponse, cs *genai.ChatSession) s
 				}
 				result, err := scanDirectory(directory)
 				if err != nil {
-					funcResponse = map[string]interface{}{"error": err.Error()}
+					funcResponse["error"] = err.Error()
 				} else {
-					funcResponse = map[string]interface{}{"result": result} // Wrap the string in a map
+					funcResponse["result"] = result
 				}
 
 			// default:
@@ -125,6 +125,32 @@ func buildResponse(resp *genai.GenerateContentResponse, cs *genai.ChatSession) s
 			//	} else {
 			//		funcResponse["result"] = sysInfo
 			//	}
+			case "run_command":
+				command, ok := functionCall.Args["command"].(string)
+				if !ok || command == "" {
+					funcResponse["error"] = "expected a non-empty string for 'command'"
+					break
+				}
+				args, _ := functionCall.Args["args"].(string) // optional, so no need to check
+				output, err := RunCommand(command, args)
+				if err != nil {
+					funcResponse["error"] = err.Error()
+				} else {
+					funcResponse["result"] = output
+				}
+
+			case "get_system_info":
+				sysInfo, err := GetSystemSpecs()
+				if err != nil {
+					funcResponse["error"] = "failed to retrieve system information: " + err.Error()
+				} else {
+					// Convert map[string]string to map[string]interface{}
+					convertedSysInfo := make(map[string]interface{})
+					for k, v := range sysInfo {
+						convertedSysInfo[k] = v
+					}
+					funcResponse["result"] = convertedSysInfo
+				}
 
 			default:
 				funcResponse["error"] = "unknown function call"
