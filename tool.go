@@ -237,108 +237,105 @@ var ReadFileTool = &genai.Tool{
 	},
 }
 
-//func GetSystemInfo() (map[string]string, error) {
-//	info := make(map[string]string)
+//	func GetSystemInfo() (map[string]string, error) {
+//		info := make(map[string]string)
 //
-//	// OS and CPU Architecture
-//	info["os"] = runtime.GOOS
-//	info["architecture"] = runtime.GOARCH
+//		// OS and CPU Architecture
+//		info["os"] = runtime.GOOS
+//		info["architecture"] = runtime.GOARCH
 //
-//	// Detect terminal shell
-//	shell := os.Getenv("SHELL")
-//	if shell == "" {
-//		shell = "Unknown"
+//		// Detect terminal shell
+//		shell := os.Getenv("SHELL")
+//		if shell == "" {
+//			shell = "Unknown"
+//		}
+//		info["shell"] = shell
+//
+//		// Get CPU details
+//		cpuInfo, err := getCommandOutput("lscpu") // Linux
+//		if err != nil {
+//			cpuInfo, err = getCommandOutput("wmic cpu get name") // Windows
+//		}
+//		if err == nil {
+//			info["cpu"] = strings.TrimSpace(cpuInfo)
+//		} else {
+//			info["cpu"] = "Unknown"
+//		}
+//
+//		// Get GPU details (NVIDIA only)
+//		gpuInfo, err := getCommandOutput("nvidia-smi --query-gpu=name --format=csv,noheader")
+//		if err == nil {
+//			info["gpu"] = strings.TrimSpace(gpuInfo)
+//		} else {
+//			info["gpu"] = "No NVIDIA GPU detected"
+//		}
+//
+//		return info, nil
 //	}
-//	info["shell"] = shell
 //
-//	// Get CPU details
-//	cpuInfo, err := getCommandOutput("lscpu") // Linux
-//	if err != nil {
-//		cpuInfo, err = getCommandOutput("wmic cpu get name") // Windows
-//	}
-//	if err == nil {
-//		info["cpu"] = strings.TrimSpace(cpuInfo)
-//	} else {
-//		info["cpu"] = "Unknown"
-//	}
+// // Helper function to run shell commands
 //
-//	// Get GPU details (NVIDIA only)
-//	gpuInfo, err := getCommandOutput("nvidia-smi --query-gpu=name --format=csv,noheader")
-//	if err == nil {
-//		info["gpu"] = strings.TrimSpace(gpuInfo)
-//	} else {
-//		info["gpu"] = "No NVIDIA GPU detected"
+//	func getCommandOutput(cmdStr string) (string, error) {
+//		cmdParts := strings.Split(cmdStr, " ")
+//		cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
+//		var out bytes.Buffer
+//		cmd.Stdout = &out
+//		err := cmd.Run()
+//		if err != nil {
+//			return "", err
+//		}
+//		return out.String(), nil
 //	}
 //
-//	return info, nil
-//}
-//
-//// Helper function to run shell commands
-//func getCommandOutput(cmdStr string) (string, error) {
-//	cmdParts := strings.Split(cmdStr, " ")
-//	cmd := exec.Command(cmdParts[0], cmdParts[1:]...)
-//	var out bytes.Buffer
-//	cmd.Stdout = &out
-//	err := cmd.Run()
-//	if err != nil {
-//		return "", err
+//	var systemInfoSchema = &genai.Schema{
+//		Type:        genai.TypeObject,
+//		Properties:  map[string]*genai.Schema{},
+//		Description: "Retrieves system information including OS, CPU, GPU, and terminal shell.",
 //	}
-//	return out.String(), nil
-//}
 //
-//var systemInfoSchema = &genai.Schema{
-//	Type:        genai.TypeObject,
-//	Properties:  map[string]*genai.Schema{},
-//	Description: "Retrieves system information including OS, CPU, GPU, and terminal shell.",
-//}
-//
-//var SystemInfoTool = &genai.Tool{
-//	FunctionDeclarations: []*genai.FunctionDeclaration{
-//		{
-//			Name:        "get_system_info",
-//			Description: "Gets details about the operating system, CPU, GPU, and terminal shell.",
-//			Parameters:  systemInfoSchema,
+//	var SystemInfoTool = &genai.Tool{
+//		FunctionDeclarations: []*genai.FunctionDeclaration{
+//			{
+//				Name:        "get_system_info",
+//				Description: "Gets details about the operating system, CPU, GPU, and terminal shell.",
+//				Parameters:  systemInfoSchema,
+//			},
 //		},
-//	},
-//}
-
-func RunCommand(command string, argsStr string) (string, error) {
-	// Split the arguments string into a slice (if any arguments are provided)
-	var args []string
-	if argsStr != "" {
-		args = strings.Fields(argsStr)
+//	}
+func RunCommand(cmdLine string) (string, error) {
+	parts := strings.Fields(cmdLine)
+	if len(parts) == 0 {
+		return "", fmt.Errorf("no command provided")
 	}
-
-	// Create the command using the command name and arguments
-	cmd := exec.Command(command, args...)
-	output, err := cmd.CombinedOutput() // capture both stdout and stderr
+	cmd := exec.Command(parts[0], parts[1:]...)
+	output, err := cmd.CombinedOutput()
 	if err != nil {
 		return "", fmt.Errorf("failed to execute command: %v\nOutput: %s", err, output)
 	}
-
-	return string(output), nil
+	outStr := string(output)
+	// If output is empty, return a default success message.
+	if strings.TrimSpace(outStr) == "" {
+		outStr = "Command executed successfully, but no output was returned."
+	}
+	return outStr, nil
 }
 
 var runCommandSchema = &genai.Schema{
 	Type: genai.TypeObject,
 	Properties: map[string]*genai.Schema{
-		"command": {
+		"cmdLine": {
 			Type:        genai.TypeString,
-			Description: "The terminal command to execute. Examples include 'ls', 'rm', 'mv', 'cp', etc.",
-		},
-		"args": {
-			Type:        genai.TypeString,
-			Description: "Optional space-separated arguments for the command.",
+			Description: "The full terminal command to execute, including the command and all its arguments (e.g., 'ls -la /home/user').",
 		},
 	},
-	Required: []string{"command"},
+	Required: []string{"cmdLine"},
 }
 
 var RunCommandTool = &genai.Tool{
 	FunctionDeclarations: []*genai.FunctionDeclaration{
 		{
 			Name:        "run_command",
-			Description: "Executes a simple terminal command with optional arguments and returns its output.",
+			Description: "Executes a simple terminal command  and returns its output.",
 			Parameters:  runCommandSchema,
 		},
 	},

@@ -7,6 +7,7 @@ import (
 	"github.com/joho/godotenv"
 	"log"
 	"os"
+	"strings"
 )
 
 const GenaiModel = "gemini-1.5-flash" // model to use
@@ -16,6 +17,8 @@ type App struct {
 	model  *genai.GenerativeModel
 	cs     *genai.ChatSession
 }
+
+var genaiApp *App
 
 func main() {
 	var err error
@@ -27,7 +30,7 @@ func main() {
 
 	reader := bufio.NewReader(os.Stdin)
 
-	genaiApp := &App{}
+	genaiApp = &App{}
 
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	genaiApp.client, err = NewClient(apiKey, context.Background())
@@ -36,8 +39,19 @@ func main() {
 	}
 
 	genaiApp.model = NewModel(genaiApp.client, GenaiModel)
-	genaiApp.model.Tools = []*genai.Tool{FileTool, ScanTool, ReadFileTool, RunCommandTool, SystemInfoTool}
+	genaiApp.model.Tools = []*genai.Tool{FileTool, ScanTool, ReadFileTool, RunCommandTool, SystemInfoTool, FileContentTool}
 	genaiApp.cs = genaiApp.model.StartChat()
+	// Send the system prompt as the initial system message.
+	response, err := genaiApp.cs.SendMessage(context.Background(), genai.Text(SystemPrompt))
+	if err != nil {
+		log.Fatalf("Error sending system prompt: %v", err)
+	}
+	responseString := buildResponse(response, genaiApp.cs)
+
+	log.Println("Response:", responseString)
+
+	//// Main loop: read user input and interact.
+	//reader := bufio.NewReader(os.Stdin)
 
 	for {
 		input, _ := reader.ReadString('\n')
@@ -126,15 +140,16 @@ func buildResponse(resp *genai.GenerateContentResponse, cs *genai.ChatSession) s
 			//		funcResponse["result"] = sysInfo
 			//	}
 			case "run_command":
-				command, ok := functionCall.Args["command"].(string)
-				if !ok || command == "" {
-					funcResponse["error"] = "expected a non-empty string for 'command'"
+				cmdLine, ok := functionCall.Args["cmdLine"].(string)
+				if !ok || strings.TrimSpace(cmdLine) == "" {
+					funcResponse["error"] = "expected a non-empty string for 'cmdLine'"
 					break
 				}
-				args, _ := functionCall.Args["args"].(string) // optional, so no need to check
-				output, err := RunCommand(command, args)
+				output, err := RunCommand(cmdLine)
 				if err != nil {
-					funcResponse["error"] = err.Error()
+					// Log the error and return a friendly message.
+					log.Printf("RunCommand error: %v", err)
+					funcResponse["result"] = "Command executed with error: " + err.Error()
 				} else {
 					funcResponse["result"] = output
 				}
@@ -150,6 +165,27 @@ func buildResponse(resp *genai.GenerateContentResponse, cs *genai.ChatSession) s
 						convertedSysInfo[k] = v
 					}
 					funcResponse["result"] = convertedSysInfo
+				}
+
+			case "read_file_content":
+				// Retrieve the filePath argument.
+				filePath, ok := functionCall.Args["filePath"].(string)
+				if !ok || strings.TrimSpace(filePath) == "" {
+					funcResponse["error"] = "expected non-empty string at key 'filePath'"
+					break
+				}
+				// Retrieve the prompt argument.
+				prompt, ok := functionCall.Args["prompt"].(string)
+				if !ok || strings.TrimSpace(prompt) == "" {
+					funcResponse["error"] = "expected non-empty string at key 'prompt'"
+					break
+				}
+				// Call our file analysis function.
+				analysis, err := ReadFileContentWithAI(context.Background(), genaiApp.client, filePath, prompt)
+				if err != nil {
+					funcResponse["error"] = err.Error()
+				} else {
+					funcResponse["result"] = analysis
 				}
 
 			default:

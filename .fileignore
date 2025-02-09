@@ -1,5 +1,4 @@
 *.gz
-*.txt
-a.txt
+
 .env
 *.jpg
