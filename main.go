@@ -4,13 +4,13 @@ import (
 	"bufio"
 	"context"
 	"github.com/google/generative-ai-go/genai"
-	"github.com/joho/godotenv"
 	"log"
 	"os"
 	"strings"
 )
 
 const GenaiModel = "gemini-1.5-flash" // model to use
+const EnvFilePath = ".myapp_env"
 
 type App struct {
 	client *genai.Client
@@ -23,16 +23,18 @@ var genaiApp *App
 func main() {
 	var err error
 
-	err = godotenv.Load()
-	if err != nil {
-		log.Fatalf("Error loading .env file")
-	}
-
+	//err = godotenv.Load()
+	//if err != nil {
+	//	log.Fatalf("Error loading .env file")
+	//}
+	//
 	reader := bufio.NewReader(os.Stdin)
-
+	//
 	genaiApp = &App{}
+	//
+	//apiKey := os.Getenv("GEMINI_API_KEY")
 
-	apiKey := os.Getenv("GEMINI_API_KEY")
+	apiKey := getAPIKey(reader)
 	genaiApp.client, err = NewClient(apiKey, context.Background())
 	if err != nil {
 		log.Fatalf("Error creating client")

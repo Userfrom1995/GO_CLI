@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/google/generative-ai-go/genai"
-	"io/ioutil"
-	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -66,66 +64,126 @@ func WriteDesktop(fileName string, content string) error {
 	return nil
 }
 
-func scanDirectory(dir string) (string, error) {
-	// Ensure the directory exists
-	if _, err := os.Stat(dir); os.IsNotExist(err) {
-		return "", fmt.Errorf("directory '%s' does not exist", dir)
-	}
-
-	var content strings.Builder
-	var indentLevel int
-
-	ignorePatterns, err := loadIgnorePatterns(dir)
-	if err != nil {
-		log.Printf("Warning: Failed to load .fileignore: %v\n", err)
-	}
-
-	err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
-		if err != nil {
-			log.Printf("Error accessing path %s: %v\n", path, err)
-			return nil // Skip this file or folder
-		}
-
-		relPath, _ := filepath.Rel(dir, path)
-
-		if isIgnored(relPath, info, ignorePatterns) {
-			log.Printf("Skipping ignored file: %s\n", path)
-			return nil
-		}
-
-		indentLevel = strings.Count(relPath, string(os.PathSeparator))
-		indentation := strings.Repeat("  ", indentLevel)
-
-		if info.IsDir() {
-			content.WriteString(fmt.Sprintf("%s📁 Folder: %s\n", indentation, path))
-			return nil
-		}
-
-		content.WriteString(fmt.Sprintf("%s📄 File: %s (Size: %d bytes)\n", indentation, path, info.Size()))
-		return nil
-	})
-
-	return content.String(), err
-}
+//	func scanDirectory(dir string) (string, error) {
+//		// Ensure the directory exists
+//		if _, err := os.Stat(dir); os.IsNotExist(err) {
+//			return "", fmt.Errorf("directory '%s' does not exist", dir)
+//		}
+//
+//		var content strings.Builder
+//		var indentLevel int
+//
+//		ignorePatterns, err := loadIgnorePatterns(dir)
+//		if err != nil {
+//			log.Printf("Warning: Failed to load .fileignore: %v\n", err)
+//		}
+//
+//		err = filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
+//			if err != nil {
+//				log.Printf("Error accessing path %s: %v\n", path, err)
+//				return nil // Skip this file or folder
+//			}
+//
+//			relPath, _ := filepath.Rel(dir, path)
+//
+//			if isIgnored(relPath, info, ignorePatterns) {
+//				log.Printf("Skipping ignored file: %s\n", path)
+//				return nil
+//			}
+//
+//			indentLevel = strings.Count(relPath, string(os.PathSeparator))
+//			indentation := strings.Repeat("  ", indentLevel)
+//
+//			if info.IsDir() {
+//				content.WriteString(fmt.Sprintf("%s📁 Folder: %s\n", indentation, path))
+//				return nil
+//			}
+//
+//			content.WriteString(fmt.Sprintf("%s📄 File: %s (Size: %d bytes)\n", indentation, path, info.Size()))
+//			return nil
+//		})
+//
+//		return content.String(), err
+//	}
+//func scanDirectory(dir string) (string, error) {
+//	// Check if the path is empty
+//	if dir == "" {
+//		return "", fmt.Errorf("error: directory path is required")
+//	}
+//
+//	// Convert to absolute path
+//	absPath, err := filepath.Abs(dir)
+//	if err != nil {
+//		return "", fmt.Errorf("error: failed to get absolute path: %v", err)
+//	}
+//
+//	// Ensure the directory exists
+//	if _, err := os.Stat(absPath); os.IsNotExist(err) {
+//		return "", fmt.Errorf("error: directory '%s' does not exist", absPath)
+//	}
+//
+//	var content strings.Builder
+//	var indentLevel int
+//	var ignorePatterns []string
+//
+//	// Load ignore patterns (optional, failure does not stop execution)
+//	ignorePatterns, err = loadIgnorePatterns(absPath)
+//	if err != nil {
+//		log.Printf("Warning: Failed to load .fileignore: %v\n", err)
+//	}
+//
+//	// Walk through the directory
+//	err = filepath.Walk(absPath, func(path string, info os.FileInfo, err error) error {
+//		if err != nil {
+//			log.Printf("Warning: Error accessing path %s: %v\n", path, err)
+//			return nil // Continue scanning
+//		}
+//
+//		relPath, _ := filepath.Rel(absPath, path)
+//
+//		if isIgnored(relPath, info, ignorePatterns) {
+//			log.Printf("Skipping ignored file: %s\n", path)
+//			return nil
+//		}
+//
+//		indentLevel = strings.Count(relPath, string(os.PathSeparator))
+//		indentation := strings.Repeat("  ", indentLevel)
+//
+//		// Format output for Gemini to understand
+//		if info.IsDir() {
+//			content.WriteString(fmt.Sprintf("%s📁 Folder: %s\n", indentation, path))
+//		} else {
+//			content.WriteString(fmt.Sprintf("%s📄 File: %s (Size: %d bytes)\n", indentation, path, info.Size()))
+//		}
+//
+//		return nil
+//	})
+//
+//	if err != nil {
+//		return "", fmt.Errorf("error: failed to scan directory: %v", err)
+//	}
+//
+//	return content.String(), nil
+//}
 
 // loadIgnorePatterns reads .fileignore and returns a slice of patterns
-func loadIgnorePatterns(dir string) ([]string, error) {
-	ignoreFilePath := filepath.Join(dir, ".fileignore")
-	data, err := ioutil.ReadFile(ignoreFilePath)
-	if err != nil {
-		return nil, err // No .fileignore found, return empty slice
-	}
-
-	lines := strings.Split(string(data), "\n")
-	var patterns []string
-	for _, line := range lines {
-		trimmed := strings.TrimSpace(line)
-		if trimmed != "" {
-			patterns = append(patterns, trimmed)
-		}
-	}
-	return patterns, nil
-}
+//func loadIgnorePatterns(dir string) ([]string, error) {
+//	ignoreFilePath := filepath.Join(dir, ".fileignore")
+//	data, err := ioutil.ReadFile(ignoreFilePath)
+//	if err != nil {
+//		return nil, err // No .fileignore found, return empty slice
+//	}
+//
+//	lines := strings.Split(string(data), "\n")
+//	var patterns []string
+//	for _, line := range lines {
+//		trimmed := strings.TrimSpace(line)
+//		if trimmed != "" {
+//			patterns = append(patterns, trimmed)
+//		}
+//	}
+//	return patterns, nil
+//}
 
 // isIgnored checks if a file matches any pattern in .fileignore
 func isIgnored(path string, info os.FileInfo, patterns []string) bool {
@@ -173,7 +231,7 @@ var scanDirectorySchema = &genai.Schema{
 	Properties: map[string]*genai.Schema{
 		"directory": {
 			Type:        genai.TypeString,
-			Description: "The directory path to scan. If empty, scans the current directory.",
+			Description: "The absolute directory path to scan. This field is required.",
 		},
 	},
 	Required: []string{"directory"},
