@@ -1,22 +1,20 @@
 
----
 
-## **GoEdit - AI-Powered Terminal File Manager**
+# **GoEdit - AI-Powered Terminal Assistant & Co-Pilot**
 
-GoEdit is a lightweight **terminal-based file editor and AI assistant** written in Go. It enables users to manage files, directories, and system operations using **natural language commands**, while leveraging AI for intelligent file operations.
+GoEdit is an **AI-driven terminal assistant** that acts as your **smart companion** in the command line. It helps with **file operations, system tasks, AI chat, media analysis, and more**, making your terminal experience more interactive and intelligent.
 
 ---
 
 ## **✨ Features**
 
-✅ **AI-Powered File Management** – Create, modify, delete, and organize files using natural language.  
-✅ **Terminal-Based** – No GUI required; fully functional within the terminal.  
-✅ **Full File System Control** – Perform operations on any directory or file.  
-✅ **AI Chat Assistant** – Chat directly with the bot in the terminal _(no need to prefix with `ask`)_!  
-✅ **Seamless AI Integration** – Uses **Google Gemini API** for intelligent responses.  
-✅ **File & Media Analysis** – Analyze images, videos, and document content.  
-✅ **Execute System Commands** – Run simple commands directly from the terminal.  
-✅ **Cross-Platform Compatibility** – Supports Linux, Windows, and macOS.
+✅ **AI Chat Assistant** – Directly chat with AI, no need for prefixes like `ask`.  
+✅ **Smart File Operations** – Create, modify, delete, and organize files seamlessly.  
+✅ **Terminal Command Execution** – Automate and simplify complex system tasks.  
+✅ **Media & Document Analysis** – Understand images, PDFs, and videos.  
+✅ **Directory Scanning** – Lookup files and folders with AI assistance.  
+✅ **Google Gemini 2.0 Flash Integration** – AI-powered responses for any query.  
+✅ **Lightweight & Efficient** – No GUI, runs directly in the terminal.
 
 ---
 
@@ -70,20 +68,20 @@ GoEdit uses **Gemini 2.0 Flash** for AI-powered operations. You can get a **free
 
 ## **🚀 Usage**
 
-### **Basic Commands:**
-Once the chat starts, you can talk to the AI **without using `ask`**. Just type your command directly:
+### **No Need for `ask` – Just Chat Freely!**
+Once the assistant is started, you can directly chat with it in the terminal:
 ```sh
-Create a new file named notes.txt  
-Show all files in the current directory  
-Delete the file old_logs.txt  
-Analyze the image photo.jpg  
+Hey, what's the weather like today?  
+Find me the latest news on AI research.  
+Organize my files in the Documents folder.  
+Analyze this image: photo.jpg  
 ```
 
-### **Advanced Features:**
-- **File & Folder Lookup:** Search for specific files and directories.
-- **Read & Write Files:** Modify documents using AI assistance.
-- **Media Analysis:** Process images and videos.
-- **AI Chat:** Ask **any question** that **Google Gemini** can answer!
+### **Smart System Operations:**
+- **Run terminal commands** intelligently.
+- **Read & write files** seamlessly.
+- **Perform file analysis** and categorization.
+- **Enhance workflow automation** with AI assistance.
 
 ---
 
@@ -93,18 +91,18 @@ If you want to **contribute** or understand the code structure, here’s what yo
 
 ### **Project Structure**
 - **Main Files:**
-    - `main.go` – The entry point of the application.
-    - `go.mod` & `go.sum` – Go module dependencies.
+  - `main.go` – The entry point of the application.
+  - `go.mod` & `go.sum` – Go module dependencies.
 - **Tool Files:**
-    - Various `.go` files like `scan.go`, `tools.go`, etc., handle different features.
-    - The filenames indicate their functionality.
+  - Various `.go` files like `scan.go`, `tools.go`, etc., handle different features.
+  - The filenames indicate their functionality.
 - **Release Folder:**
-    - Contains the files used for generating the latest **release builds**.
+  - Contains the files used for generating the latest **release builds**.
 - **Function Test Directory:**
-    - Used for dry-run testing before implementation.
+  - Used for dry-run testing before implementation.
 - **Other Files (Images, PDFs, Videos):**
-    - Just sample/test files added during development.
-    - **Not required** for running the project.
+  - Just sample/test files added during development.
+  - **Not required** for running the project.
 
 ### **Branching & Contributions**
 - The repository has **only one branch** – everything is directly in the main directory.
