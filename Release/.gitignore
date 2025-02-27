@@ -1,0 +1,6 @@
+Terminal-Assistant
+.env
+/.devcontainer
+*.gz
+mybot*
+

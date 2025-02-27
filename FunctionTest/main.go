@@ -9,70 +9,49 @@ import (
 	"os/exec"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 )
 
-// scanDirectory scans the given directory using `tree` (or `find/dir`) while respecting .fileignore
-func scanDirectory(dir string) (string, error) {
+// scanDirectory scans the given directory while respecting .fileignore and the depth limit.
+func scanDirectory(dir string, depth int) (string, error) {
 	if dir == "" {
 		return "", fmt.Errorf("error: directory path is required")
 	}
 
-	// Convert to absolute path
 	absPath, err := filepath.Abs(dir)
 	if err != nil {
 		return "", fmt.Errorf("error: failed to get absolute path: %v", err)
 	}
 
-	// Ensure the directory exists
 	if _, err := os.Stat(absPath); os.IsNotExist(err) {
 		return "", fmt.Errorf("error: directory '%s' does not exist", absPath)
 	}
 
-	// Load ignore patterns (optional)
 	ignorePatterns, err := loadIgnorePatterns(absPath)
 	if err != nil {
 		log.Printf("Warning: Failed to load .fileignore: %v\n", err)
+		ignorePatterns = []string{}
 	}
 
-	// Run tree command with ignore rules
-	treeOutput, err := runTreeCommand(absPath, ignorePatterns)
+	output, err := runDirectoryCommand(absPath, ignorePatterns, depth)
 	if err != nil {
-		return "", fmt.Errorf("error: failed to run tree command: %v", err)
+		return "", fmt.Errorf("error: failed to list directory: %v", err)
 	}
 
-	return treeOutput, nil
+	return output, nil
 }
 
-// runTreeCommand executes the system's directory listing command while skipping ignored files
-func runTreeCommand(dir string, ignorePatterns []string) (string, error) {
+// runDirectoryCommand executes platform-specific directory listing with depth control.
+func runDirectoryCommand(dir string, ignorePatterns []string, depth int) (string, error) {
 	var cmd *exec.Cmd
-	var ignoreArgs []string
-
-	// Convert ignore patterns to command arguments
-	for _, pattern := range ignorePatterns {
-		if runtime.GOOS == "windows" {
-			ignoreArgs = append(ignoreArgs, fmt.Sprintf("/S /B /A:-D | find /V \"%s\"", pattern))
-		} else {
-			ignoreArgs = append(ignoreArgs, fmt.Sprintf("! -path '%s/*'", filepath.Join(dir, pattern)))
-		}
-	}
 
 	if runtime.GOOS == "windows" {
-		// Windows: Use `dir /s /b` and filter ignored files
-		cmd = exec.Command("cmd", "/c", "dir /s /b", dir, strings.Join(ignoreArgs, " "))
+		// Use PowerShell for proper depth control
+		cmd = exec.Command("powershell", "-Command", fmt.Sprintf(`Get-ChildItem -Path "%s" -Recurse -Depth %d -Name`, dir, depth))
 	} else {
-		// Linux/macOS: Use `find` with ignore filters
-		if _, err := exec.LookPath("tree"); err == nil {
-			cmd = exec.Command("tree", "-a", "--noreport", "--prune", "--matchdirs", dir)
-			for _, pattern := range ignorePatterns {
-				cmd.Args = append(cmd.Args, "-I", pattern)
-			}
-		} else {
-			findCmd := []string{"find", dir, "-type", "f"}
-			findCmd = append(findCmd, ignoreArgs...)
-			cmd = exec.Command(findCmd[0], findCmd[1:]...)
-		}
+		// Use `find` for Unix-like systems
+		cmd = exec.Command("find", dir, "-maxdepth", strconv.Itoa(depth), "-print")
 	}
 
 	var out bytes.Buffer
@@ -80,14 +59,23 @@ func runTreeCommand(dir string, ignorePatterns []string) (string, error) {
 	cmd.Stderr = &out
 
 	err := cmd.Run()
-	return out.String(), err
+	if err != nil {
+		return "", err
+	}
+
+	lines := strings.Split(out.String(), "\n")
+	filteredLines := filterIgnoredFiles(lines, ignorePatterns)
+	return strings.Join(filteredLines, "\n"), nil
 }
 
+// loadIgnorePatterns reads .fileignore and returns a slice of patterns
 func loadIgnorePatterns(dir string) ([]string, error) {
 	ignoreFilePath := filepath.Join(dir, ".fileignore")
 	data, err := ioutil.ReadFile(ignoreFilePath)
-	if err != nil {
-		return nil, err // No .fileignore found, return empty slice
+	if os.IsNotExist(err) {
+		return []string{}, nil // No .fileignore found
+	} else if err != nil {
+		return nil, err
 	}
 
 	lines := strings.Split(string(data), "\n")
@@ -101,11 +89,36 @@ func loadIgnorePatterns(dir string) ([]string, error) {
 	return patterns, nil
 }
 
+// filterIgnoredFiles removes paths that match .fileignore patterns
+func filterIgnoredFiles(files []string, ignorePatterns []string) []string {
+	var filtered []string
+	for _, file := range files {
+		ignored := false
+		for _, pattern := range ignorePatterns {
+			if strings.Contains(file, pattern) {
+				ignored = true
+				break
+			}
+		}
+		if !ignored {
+			filtered = append(filtered, file)
+		}
+	}
+	return filtered
+}
+
 func main() {
-	output, err := scanDirectory("/home/user")
+	depth := 2 // Default depth
+	if len(os.Args) > 1 {
+		userDepth, err := strconv.Atoi(os.Args[1])
+		if err == nil {
+			depth = userDepth
+		}
+	}
+
+	output, err := scanDirectory("/mnt", depth)
 	if err != nil {
-		fmt.Println("Error:", err)
-		return
+		log.Fatalf("Error: %v", err)
 	}
 	fmt.Println(output)
 }
