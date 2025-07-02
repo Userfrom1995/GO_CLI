@@ -1,8 +1,8 @@
 
 
-# **GoEdit - AI-Powered Terminal Assistant & Co-Pilot**
+# **Go_CLI - AI-Powered Terminal Assistant & Co-Pilot**
 
-GoEdit is an **AI-driven terminal assistant** that acts as your **smart companion** in the command line. It helps with **file operations, system tasks, AI chat, media analysis, and more**, making your terminal experience more interactive and intelligent.
+Go_CLI is an **AI-driven terminal assistant** that acts as your **smart companion** in the command line. It helps with **file operations, system tasks, AI chat, media analysis, and more**, making your terminal experience more interactive and intelligent.
 
 ---
 
@@ -21,7 +21,7 @@ GoEdit is an **AI-driven terminal assistant** that acts as your **smart companio
 ## **📥 Installation**
 
 ### **1️⃣ Download the Release**
-Go to the **[Releases](https://github.com/your-repo-link/releases)** page and download the appropriate version for your OS:  
+Go to the **[Releases](https://github.com/Userfrom1995/GO_CLI/releases)** page and download the appropriate version for your OS:  
 🔹 **Linux** → `mybot-linux`  
 🔹 **Windows** → `mybot-windows.exe`  
 🔹 **MacOS** → `mybot-macos` _(⚠️ Not tested yet – testers needed!)_
@@ -46,7 +46,7 @@ mybot-windows.exe
 ---
 
 ## **⚙️ Initial Setup**
-When you run GoEdit for the first time, it will **ask for your API key** (for AI functionality).
+When you run Go_CLI for the first time, it will **ask for your API key** (for AI functionality).
 - The API key is stored securely on your system.
 - The storage path will be displayed – **keep it in mind** in case you need to reset your key.
 
@@ -54,13 +54,13 @@ When you run GoEdit for the first time, it will **ask for your API key** (for AI
 
 ## **🌟 Get a Free Google Gemini API Key!**
 
-GoEdit uses **Gemini 2.0 Flash** for AI-powered operations. You can get a **free API key** from **Google AI Studio**:
+Go_CLI uses **Gemini 2.0 Flash** for AI-powered operations. You can get a **free API key** from **Google AI Studio**:
 
 1. Go to **[Google AI Studio](https://aistudio.google.com/)**
 2. Sign in with your **Google Account**
 3. Click on **"API Keys"**
 4. Generate a **new API key**
-5. Copy the key and paste it when prompted by GoEdit
+5. Copy the key and paste it when prompted by Go_CLI
 
 🔹 **Note:** Free-tier users may have some rate limits on API requests.
 
@@ -131,7 +131,7 @@ This project is licensed under **MIT**. See the [LICENSE](./LICENSE) file for de
 ---
 
 ## **💬 Need Help?**
-Have a question or suggestion? Open an issue, and let’s improve **GoEdit** together! 🚀
+Have a question or suggestion? Open an issue, and let’s improve **Go_CLI** together! 🚀
 
 ---
 
